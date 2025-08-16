@@ -14,7 +14,59 @@ interface Repository {
   checkIgnore(paths: string[]): Promise<Set<string>>;
 }
 
+interface CacheEntry {
+  directories: string[];
+  timestamp: number;
+}
+
+const directoryCache = new Map<string, CacheEntry>();
+let fileWatcher: vscode.FileSystemWatcher | undefined;
+
+const invalidateCache = (workspaceUri: vscode.Uri) => {
+  const cacheKey = workspaceUri.toString();
+  directoryCache.delete(cacheKey);
+};
+
+const initializeFileWatcher = (context: vscode.ExtensionContext) => {
+  if (fileWatcher) {
+    fileWatcher.dispose();
+  }
+
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders) {
+    return;
+  }
+
+  fileWatcher = vscode.workspace.createFileSystemWatcher(
+    "**/*",
+    false,
+    true,
+    false,
+  );
+
+  fileWatcher.onDidCreate((uri) => {
+    for (const folder of workspaceFolders) {
+      if (uri.fsPath.startsWith(folder.uri.fsPath)) {
+        invalidateCache(folder.uri);
+        break;
+      }
+    }
+  });
+
+  fileWatcher.onDidDelete((uri) => {
+    for (const folder of workspaceFolders) {
+      if (uri.fsPath.startsWith(folder.uri.fsPath)) {
+        invalidateCache(folder.uri);
+        break;
+      }
+    }
+  });
+
+  context.subscriptions.push(fileWatcher);
+};
+
 export function activate(context: vscode.ExtensionContext) {
+  initializeFileWatcher(context);
   const findFolderDisposable = vscode.commands.registerCommand(
     "vstofolder.FindFolder",
     async () => {
@@ -31,7 +83,7 @@ export function activate(context: vscode.ExtensionContext) {
         gitAPI = gitExtension.getAPI(1);
       }
 
-      const directories: string[] = [];
+      let allDirectories: string[] = [];
 
       const isIgnoredByGit = async (uri: vscode.Uri): Promise<boolean> => {
         if (!gitAPI || gitAPI.repositories.length === 0) {
@@ -93,6 +145,7 @@ export function activate(context: vscode.ExtensionContext) {
       const scanDirectory = async (
         dirUri: vscode.Uri,
         relativePath: string = "",
+        directories: string[] = [],
       ) => {
         try {
           const items = await vscode.workspace.fs.readDirectory(dirUri);
@@ -114,7 +167,7 @@ export function activate(context: vscode.ExtensionContext) {
               }
 
               directories.push(itemRelativePath);
-              await scanDirectory(childUri, itemRelativePath);
+              await scanDirectory(childUri, itemRelativePath, directories);
             }
           }
         } catch (error) {
@@ -123,16 +176,33 @@ export function activate(context: vscode.ExtensionContext) {
       };
 
       for (const folder of workspaceFolders) {
-        await scanDirectory(folder.uri);
+        const cacheKey = folder.uri.toString();
+        const cached = directoryCache.get(cacheKey);
+        const now = Date.now();
+        const cacheValidDuration = 5 * 60 * 1000; // 5 minutes
+
+        if (cached && now - cached.timestamp < cacheValidDuration) {
+          allDirectories.push(...cached.directories);
+        } else {
+          const directories: string[] = [];
+          await scanDirectory(folder.uri, "", directories);
+
+          directoryCache.set(cacheKey, {
+            directories: directories,
+            timestamp: now,
+          });
+
+          allDirectories.push(...directories);
+        }
       }
 
-      if (directories.length === 0) {
+      if (allDirectories.length === 0) {
         vscode.window.showInformationMessage("No directories found");
         return;
       }
 
       const selectedFolder = await vscode.window.showQuickPick(
-        directories.sort(),
+        allDirectories.sort(),
         {
           title: "Find Folder",
           canPickMany: false,
@@ -152,6 +222,20 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(findFolderDisposable);
+
+  vscode.workspace.onDidChangeWorkspaceFolders(
+    () => {
+      directoryCache.clear();
+      initializeFileWatcher(context);
+    },
+    null,
+    context.subscriptions,
+  );
 }
 
-export function deactivate() {}
+export function deactivate() {
+  if (fileWatcher) {
+    fileWatcher.dispose();
+  }
+  directoryCache.clear();
+}
