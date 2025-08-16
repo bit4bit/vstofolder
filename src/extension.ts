@@ -53,14 +53,24 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      vscode.window.showQuickPick(directories.sort(), {
-        title: "Find Folder",
-        canPickMany: false,
-      });
+      const selectedFolder = await vscode.window.showQuickPick(
+        directories.sort(),
+        {
+          title: "Find Folder",
+          canPickMany: false,
+        },
+      );
+
+      if (selectedFolder) {
+        const workspaceFolder = workspaceFolders[0];
+        const fullPath = path.join(workspaceFolder.uri.fsPath, selectedFolder);
+        const folderUri = vscode.Uri.file(fullPath);
+        await vscode.commands.executeCommand("workbench.view.explorer");
+        await vscode.commands.executeCommand("revealInExplorer", folderUri);
+      }
     },
   );
 
-  context.subscriptions.push(disposable);
   context.subscriptions.push(findFolderDisposable);
 }
 
