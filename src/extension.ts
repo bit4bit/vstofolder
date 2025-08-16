@@ -1,7 +1,4 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
-import * as fs from "fs";
 import * as path from "path";
 
 export function activate(context: vscode.ExtensionContext) {
@@ -16,37 +13,33 @@ export function activate(context: vscode.ExtensionContext) {
 
       const directories: string[] = [];
 
-      const scanDirectory = (dirPath: string, relativePath: string = "") => {
+      const scanDirectory = async (
+        dirUri: vscode.Uri,
+        relativePath: string = "",
+      ) => {
         try {
-          const items = fs.readdirSync(dirPath);
-          items.forEach((item) => {
-            const fullPath = path.join(dirPath, item);
-            const itemRelativePath = relativePath
-              ? path.join(relativePath, item)
-              : item;
+          const items = await vscode.workspace.fs.readDirectory(dirUri);
 
-            try {
-              const stats = fs.lstatSync(fullPath);
-              if (
-                stats.isDirectory() &&
-                !stats.isSymbolicLink() &&
-                !item.startsWith(".")
-              ) {
-                directories.push(itemRelativePath);
-                scanDirectory(fullPath, itemRelativePath);
-              }
-            } catch (error) {
-              console.error(`Error accessing ${fullPath}:`, error);
+          for (const [name, type] of items) {
+            if (type === vscode.FileType.Directory && !name.startsWith(".")) {
+              const itemRelativePath = relativePath
+                ? path.join(relativePath, name)
+                : name;
+
+              directories.push(itemRelativePath);
+
+              const childUri = vscode.Uri.joinPath(dirUri, name);
+              await scanDirectory(childUri, itemRelativePath);
             }
-          });
+          }
         } catch (error) {
-          console.error(`Error scanning directory ${dirPath}:`, error);
+          console.error(`Error scanning directory ${dirUri.fsPath}:`, error);
         }
       };
 
-      workspaceFolders.forEach((folder) => {
-        scanDirectory(folder.uri.fsPath);
-      });
+      for (const folder of workspaceFolders) {
+        await scanDirectory(folder.uri);
+      }
 
       if (directories.length === 0) {
         vscode.window.showInformationMessage("No directories found");
@@ -63,8 +56,10 @@ export function activate(context: vscode.ExtensionContext) {
 
       if (selectedFolder) {
         const workspaceFolder = workspaceFolders[0];
-        const fullPath = path.join(workspaceFolder.uri.fsPath, selectedFolder);
-        const folderUri = vscode.Uri.file(fullPath);
+        const folderUri = vscode.Uri.joinPath(
+          workspaceFolder.uri,
+          selectedFolder,
+        );
         await vscode.commands.executeCommand("workbench.view.explorer");
         await vscode.commands.executeCommand("revealInExplorer", folderUri);
       }
@@ -74,5 +69,4 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(findFolderDisposable);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}
