@@ -216,6 +216,7 @@ export function activate(context: vscode.ExtensionContext) {
           title: "Find Folder",
           placeHolder: "Select a folder to navigate to",
           canPickMany: false,
+          matchOnDescription: true,
         },
       );
 
