@@ -1,10 +1,16 @@
 {
   "name": "vstofolder",
-  "displayName": "vstofolder",
-  "description": "",
-  "version": "0.0.1",
+  "publisher": "bit4bit",
+  "displayName": "Find Folder",
+  "description": "Instantly find and navigate to any folder in your workspace.",
+  "version": "1.0.0",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.103.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bit4bit/vstofolder.git"
   },
   "categories": [
     "Other"
@@ -13,10 +19,6 @@
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
-      {
-        "command": "vstofolder.helloWorld",
-        "title": "Hello World"
-      },
       {
         "command": "vstofolder.FindFolder",
         "title": "Find Folder"
