@@ -135,11 +135,21 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(findFolderDisposable);
 
   vscode.workspace.onDidChangeWorkspaceFolders(
-    () => {
-      cache.clear();
-      folderFinder.dispose();
-      folderFinder = new FolderFinder(cache, isIgnoredByGit, environment);
-      folderFinder.initialize(context);
+    async (event) => {
+      for (const removed of event.removed) {
+        cache.delete(removed.uri.toString());
+      }
+
+      for (const added of event.added) {
+        const directories =
+          await folderFinder.getDirectoriesForWorkspace(added);
+        cache.set(added.uri.toString(), {
+          directories: directories,
+          timestamp: Date.now(),
+        });
+      }
+
+      folderFinder.updateWorkspaceFolders(context);
     },
     null,
     context.subscriptions,

@@ -4,6 +4,11 @@ All notable changes to the "vstofolder" extension will be documented in this fil
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.2.1] - 2025-08-16
+
+### Improved
+- **Cache Optimization**: When workspace folders are added or removed, only affected cache entries are updated instead of clearing the entire cache, providing faster response times
+
 ## [1.2.0] - 2025-08-16
 
 ### Changed

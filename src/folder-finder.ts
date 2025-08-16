@@ -29,6 +29,10 @@ export class FolderFinder {
     this.initializeFileWatcher(context);
   }
 
+  updateWorkspaceFolders(context: vscode.ExtensionContext) {
+    this.initializeFileWatcher(context);
+  }
+
   dispose() {
     if (this.fileWatcher) {
       this.fileWatcher.dispose();
