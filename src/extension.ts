@@ -1,25 +1,67 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+  const findFolderDisposable = vscode.commands.registerCommand(
+    "vstofolder.FindFolder",
+    async () => {
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders) {
+        vscode.window.showErrorMessage("No workspace folder is open");
+        return;
+      }
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "vstofolder" is now active!');
+      const directories: string[] = [];
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('vstofolder.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from vstofolder!');
-	});
+      const scanDirectory = (dirPath: string, relativePath: string = "") => {
+        try {
+          const items = fs.readdirSync(dirPath);
+          items.forEach((item) => {
+            const fullPath = path.join(dirPath, item);
+            const itemRelativePath = relativePath
+              ? path.join(relativePath, item)
+              : item;
 
-	context.subscriptions.push(disposable);
+            try {
+              const stats = fs.lstatSync(fullPath);
+              if (
+                stats.isDirectory() &&
+                !stats.isSymbolicLink() &&
+                !item.startsWith(".")
+              ) {
+                directories.push(itemRelativePath);
+                scanDirectory(fullPath, itemRelativePath);
+              }
+            } catch (error) {
+              console.error(`Error accessing ${fullPath}:`, error);
+            }
+          });
+        } catch (error) {
+          console.error(`Error scanning directory ${dirPath}:`, error);
+        }
+      };
+
+      workspaceFolders.forEach((folder) => {
+        scanDirectory(folder.uri.fsPath);
+      });
+
+      if (directories.length === 0) {
+        vscode.window.showInformationMessage("No directories found");
+        return;
+      }
+
+      vscode.window.showQuickPick(directories.sort(), {
+        title: "Find Folder",
+        canPickMany: false,
+      });
+    },
+  );
+
+  context.subscriptions.push(disposable);
+  context.subscriptions.push(findFolderDisposable);
 }
 
 // This method is called when your extension is deactivated

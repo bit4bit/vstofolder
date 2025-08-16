@@ -16,6 +16,10 @@
       {
         "command": "vstofolder.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "vstofolder.FindFolder",
+        "title": "Find Folder"
       }
     ]
   },
