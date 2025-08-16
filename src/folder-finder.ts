@@ -15,11 +15,15 @@ export interface DirectoryCache {
 
 export class FolderFinder {
   private fileWatcher: vscode.FileSystemWatcher | undefined;
+  private environment: string;
 
   constructor(
     private cache: DirectoryCache,
     private scmIgnoreCheck: (uri: vscode.Uri) => Promise<boolean>,
-  ) {}
+    environment: string = "vscode",
+  ) {
+    this.environment = environment;
+  }
 
   initialize(context: vscode.ExtensionContext) {
     this.initializeFileWatcher(context);
@@ -74,7 +78,17 @@ export class FolderFinder {
           const isExcluded = this.isExcludedBySettings(itemRelativePath);
 
           if (isIgnored || isExcluded) {
-            console.log(`Skipping ${itemRelativePath} due to exclusion`);
+            const config = vscode.workspace.getConfiguration("vstofolder");
+            const enableDetailedLogging = config.get<boolean>(
+              "enableDetailedLogging",
+              false,
+            );
+
+            if (enableDetailedLogging) {
+              console.log(
+                `[${this.environment}] Skipping ${itemRelativePath} due to exclusion`,
+              );
+            }
             continue;
           }
 
@@ -83,7 +97,10 @@ export class FolderFinder {
         }
       }
     } catch (error) {
-      console.error(`Error scanning directory ${dirUri.fsPath}:`, error);
+      console.error(
+        `[${this.environment}] Error scanning directory ${dirUri.fsPath}:`,
+        error,
+      );
     }
   }
 

@@ -1,6 +1,17 @@
 import * as vscode from "vscode";
 import { FolderFinder, DirectoryCache, CacheEntry } from "./folder-finder";
 
+function detectEnvironment(): string {
+  const appName = vscode.env.appName;
+  if (appName.toLowerCase().includes("windsurf")) {
+    return "windsurf";
+  }
+  if (appName.toLowerCase().includes("cursor")) {
+    return "cursor";
+  }
+  return "vscode";
+}
+
 interface GitExtension {
   getAPI(version: number): GitAPI;
 }
@@ -81,8 +92,11 @@ async function isIgnoredByGit(uri: vscode.Uri): Promise<boolean> {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+  const environment = detectEnvironment();
+  console.log(`vstofolder: Running in ${environment} (${vscode.env.appName})`);
+
   cache = new ExtensionCache();
-  folderFinder = new FolderFinder(cache, isIgnoredByGit);
+  folderFinder = new FolderFinder(cache, isIgnoredByGit, environment);
   folderFinder.initialize(context);
 
   const findFolderDisposable = vscode.commands.registerCommand(
@@ -124,6 +138,7 @@ export function activate(context: vscode.ExtensionContext) {
     () => {
       cache.clear();
       folderFinder.dispose();
+      folderFinder = new FolderFinder(cache, isIgnoredByGit, environment);
       folderFinder.initialize(context);
     },
     null,

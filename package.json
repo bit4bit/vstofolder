@@ -3,10 +3,11 @@
   "publisher": "bit4bit",
   "displayName": "Find Folder",
   "description": "Instantly find and navigate to any folder in your workspace.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.103.0"
+    "vscode": "^1.103.0",
+    "windsurf": "^1.0.0"
   },
   "repository": {
     "type": "git",
@@ -14,6 +15,15 @@
   },
   "categories": [
     "Other"
+  ],
+  "keywords": [
+    "folder",
+    "navigation",
+    "workspace",
+    "find",
+    "explorer",
+    "windsurf",
+    "vscode"
   ],
   "activationEvents": [],
   "main": "./out/extension.js",
@@ -33,6 +43,11 @@
           "minimum": 0,
           "maximum": 60,
           "description": "Cache validation duration in minutes. Set to 0 to disable caching."
+        },
+        "vstofolder.enableDetailedLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable detailed logging for debugging purposes (affects performance)."
         }
       }
     }
@@ -43,7 +58,9 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "package": "vsce package",
+    "publish": "vsce publish"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
