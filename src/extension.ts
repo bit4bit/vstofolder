@@ -112,7 +112,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const directories = await getDirectories();
+      const directories = await getDirectories(workspaceFolders);
 
       if (directories.length === 0) {
         cache.clear();
@@ -169,12 +169,9 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions,
   );
 
-  async function getDirectories(): Promise<string[]> {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {
-      return [];
-    }
-
+  async function getDirectories(
+    workspaceFolders: readonly vscode.WorkspaceFolder[],
+  ): Promise<string[]> {
     let allDirectories: string[] = [];
 
     for (const folder of workspaceFolders) {
