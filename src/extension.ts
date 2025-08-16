@@ -56,6 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
       const directories = await getDirectories();
 
       if (directories.length === 0) {
+        cache.clear();
         vscode.window.showInformationMessage("No directories found");
         return;
       }
