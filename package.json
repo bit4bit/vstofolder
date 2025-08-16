@@ -3,10 +3,10 @@
   "publisher": "bit4bit",
   "displayName": "Find Folder",
   "description": "Instantly find and navigate to any folder in your workspace.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.103.0",
+    "vscode": "^1.99.0",
     "windsurf": "^1.0.0"
   },
   "repository": {

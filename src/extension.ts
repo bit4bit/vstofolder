@@ -166,9 +166,14 @@ export function activate(context: vscode.ExtensionContext) {
     for (const folder of workspaceFolders) {
       const cacheKey = folder.uri.toString();
       const cached = cache.get(cacheKey);
+      const workspaceName = folder.name;
 
       if (cached && cache.isCacheValid(cached)) {
-        allDirectories.push(...cached.directories);
+        const prefixedDirectories =
+          workspaceFolders.length > 1
+            ? cached.directories.map((dir) => `${workspaceName}/${dir}`)
+            : cached.directories;
+        allDirectories.push(...prefixedDirectories);
       } else {
         const directories =
           await folderFinder.getDirectoriesForWorkspace(folder);
@@ -178,7 +183,11 @@ export function activate(context: vscode.ExtensionContext) {
           timestamp: Date.now(),
         });
 
-        allDirectories.push(...directories);
+        const prefixedDirectories =
+          workspaceFolders.length > 1
+            ? directories.map((dir) => `${workspaceName}/${dir}`)
+            : directories;
+        allDirectories.push(...prefixedDirectories);
       }
     }
 

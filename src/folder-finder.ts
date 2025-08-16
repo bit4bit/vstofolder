@@ -145,10 +145,23 @@ export class FolderFinder {
       return;
     }
 
-    const folderUri = vscode.Uri.joinPath(
-      workspaceFolders[0].uri,
-      selectedFolder,
-    );
+    let targetWorkspace = workspaceFolders[0];
+    let folderPath = selectedFolder;
+
+    if (workspaceFolders.length > 1) {
+      const pathParts = selectedFolder.split("/");
+      const workspaceName = pathParts[0];
+      folderPath = pathParts.slice(1).join("/");
+
+      const foundWorkspace = workspaceFolders.find(
+        (ws) => ws.name === workspaceName,
+      );
+      if (foundWorkspace) {
+        targetWorkspace = foundWorkspace;
+      }
+    }
+
+    const folderUri = vscode.Uri.joinPath(targetWorkspace.uri, folderPath);
     await vscode.commands.executeCommand("workbench.view.explorer");
     await vscode.commands.executeCommand("revealInExplorer", folderUri);
   }
