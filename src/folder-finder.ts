@@ -18,7 +18,7 @@ export class FolderFinder {
 
   constructor(
     private cache: DirectoryCache,
-    private gitIgnoreCheck: (uri: vscode.Uri) => Promise<boolean>,
+    private scmIgnoreCheck: (uri: vscode.Uri) => Promise<boolean>,
   ) {}
 
   initialize(context: vscode.ExtensionContext) {
@@ -70,7 +70,7 @@ export class FolderFinder {
             ? path.join(relativePath, name)
             : name;
 
-          const isIgnored = await this.gitIgnoreCheck(childUri);
+          const isIgnored = await this.scmIgnoreCheck(childUri);
           const isExcluded = this.isExcludedBySettings(itemRelativePath);
 
           if (isIgnored || isExcluded) {
