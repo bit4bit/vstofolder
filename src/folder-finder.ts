@@ -1,19 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
-interface GitExtension {
-  getAPI(version: number): GitAPI;
-}
-
-interface GitAPI {
-  repositories: Repository[];
-}
-
-interface Repository {
-  rootUri: vscode.Uri;
-  checkIgnore(paths: string[]): Promise<Set<string>>;
-}
-
 export interface CacheEntry {
   directories: string[];
   timestamp: number;
@@ -29,7 +16,10 @@ export interface DirectoryCache {
 export class FolderFinder {
   private fileWatcher: vscode.FileSystemWatcher | undefined;
 
-  constructor(private cache: DirectoryCache) {}
+  constructor(
+    private cache: DirectoryCache,
+    private gitIgnoreCheck: (uri: vscode.Uri) => Promise<boolean>,
+  ) {}
 
   initialize(context: vscode.ExtensionContext) {
     this.initializeFileWatcher(context);
@@ -80,7 +70,7 @@ export class FolderFinder {
             ? path.join(relativePath, name)
             : name;
 
-          const isIgnored = await this.isIgnoredByGit(childUri);
+          const isIgnored = await this.gitIgnoreCheck(childUri);
           const isExcluded = this.isExcludedBySettings(itemRelativePath);
 
           if (isIgnored || isExcluded) {
@@ -95,26 +85,6 @@ export class FolderFinder {
     } catch (error) {
       console.error(`Error scanning directory ${dirUri.fsPath}:`, error);
     }
-  }
-
-  private async isIgnoredByGit(uri: vscode.Uri): Promise<boolean> {
-    const gitAPI = this.getGitAPI();
-    if (!gitAPI || gitAPI.repositories.length === 0) {
-      return false;
-    }
-
-    const repo = gitAPI.repositories.find((repo) => {
-      const repoPath = repo.rootUri.fsPath;
-      const filePath = uri.fsPath;
-      return filePath.startsWith(repoPath);
-    });
-
-    if (!repo) {
-      return true;
-    }
-
-    const ignoredPaths = await repo.checkIgnore([uri.fsPath]);
-    return ignoredPaths.size > 0;
   }
 
   private isExcludedBySettings(relativePath: string): boolean {
@@ -150,14 +120,6 @@ export class FolderFinder {
     }
 
     return false;
-  }
-
-  private getGitAPI(): GitAPI | undefined {
-    const gitExtension = vscode.extensions.getExtension("vscode.git")?.exports;
-    if (gitExtension) {
-      return gitExtension.getAPI(1);
-    }
-    return undefined;
   }
 
   async navigateToFolder(selectedFolder: string): Promise<void> {

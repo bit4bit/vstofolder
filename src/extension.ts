@@ -1,6 +1,19 @@
 import * as vscode from "vscode";
 import { FolderFinder, DirectoryCache, CacheEntry } from "./folder-finder";
 
+interface GitExtension {
+  getAPI(version: number): GitAPI;
+}
+
+interface GitAPI {
+  repositories: Repository[];
+}
+
+interface Repository {
+  rootUri: vscode.Uri;
+  checkIgnore(paths: string[]): Promise<Set<string>>;
+}
+
 class ExtensionCache implements DirectoryCache {
   private cache = new Map<string, CacheEntry>();
 
@@ -39,9 +52,37 @@ class ExtensionCache implements DirectoryCache {
 let folderFinder: FolderFinder;
 let cache: ExtensionCache;
 
+function getGitAPI(): GitAPI | undefined {
+  const gitExtension = vscode.extensions.getExtension("vscode.git")?.exports;
+  if (gitExtension) {
+    return gitExtension.getAPI(1);
+  }
+  return undefined;
+}
+
+async function isIgnoredByGit(uri: vscode.Uri): Promise<boolean> {
+  const gitAPI = getGitAPI();
+  if (!gitAPI || gitAPI.repositories.length === 0) {
+    return false;
+  }
+
+  const repo = gitAPI.repositories.find((repo) => {
+    const repoPath = repo.rootUri.fsPath;
+    const filePath = uri.fsPath;
+    return filePath.startsWith(repoPath);
+  });
+
+  if (!repo) {
+    return true;
+  }
+
+  const ignoredPaths = await repo.checkIgnore([uri.fsPath]);
+  return ignoredPaths.size > 0;
+}
+
 export function activate(context: vscode.ExtensionContext) {
   cache = new ExtensionCache();
-  folderFinder = new FolderFinder(cache);
+  folderFinder = new FolderFinder(cache, isIgnoredByGit);
   folderFinder.initialize(context);
 
   const findFolderDisposable = vscode.commands.registerCommand(
