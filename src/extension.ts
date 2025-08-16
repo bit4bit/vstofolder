@@ -1,72 +1,49 @@
 import * as vscode from "vscode";
-import * as path from "path";
+import { FolderFinder, DirectoryCache, CacheEntry } from "./folder-finder";
 
-interface GitExtension {
-  getAPI(version: number): GitAPI;
-}
+class ExtensionCache implements DirectoryCache {
+  private cache = new Map<string, CacheEntry>();
 
-interface GitAPI {
-  repositories: Repository[];
-}
-
-interface Repository {
-  rootUri: vscode.Uri;
-  checkIgnore(paths: string[]): Promise<Set<string>>;
-}
-
-interface CacheEntry {
-  directories: string[];
-  timestamp: number;
-}
-
-const directoryCache = new Map<string, CacheEntry>();
-let fileWatcher: vscode.FileSystemWatcher | undefined;
-
-const invalidateCache = (workspaceUri: vscode.Uri) => {
-  const cacheKey = workspaceUri.toString();
-  directoryCache.delete(cacheKey);
-};
-
-const initializeFileWatcher = (context: vscode.ExtensionContext) => {
-  if (fileWatcher) {
-    fileWatcher.dispose();
+  get(key: string): CacheEntry | undefined {
+    return this.cache.get(key);
   }
 
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders) {
-    return;
+  set(key: string, value: CacheEntry): void {
+    this.cache.set(key, value);
   }
 
-  fileWatcher = vscode.workspace.createFileSystemWatcher(
-    "**/*",
-    false,
-    true,
-    false,
-  );
+  delete(key: string): void {
+    this.cache.delete(key);
+  }
 
-  fileWatcher.onDidCreate((uri) => {
-    for (const folder of workspaceFolders) {
-      if (uri.fsPath.startsWith(folder.uri.fsPath)) {
-        invalidateCache(folder.uri);
-        break;
-      }
-    }
-  });
+  clear(): void {
+    this.cache.clear();
+  }
 
-  fileWatcher.onDidDelete((uri) => {
-    for (const folder of workspaceFolders) {
-      if (uri.fsPath.startsWith(folder.uri.fsPath)) {
-        invalidateCache(folder.uri);
-        break;
-      }
-    }
-  });
+  isCacheValid(entry: CacheEntry): boolean {
+    const now = Date.now();
+    const config = vscode.workspace.getConfiguration("vstofolder");
+    const cacheValidDurationMinutes = config.get<number>(
+      "cacheValidationDuration",
+      60,
+    );
+    const cacheValidDuration = cacheValidDurationMinutes * 60 * 1000;
 
-  context.subscriptions.push(fileWatcher);
-};
+    return (
+      cacheValidDurationMinutes > 0 &&
+      now - entry.timestamp < cacheValidDuration
+    );
+  }
+}
+
+let folderFinder: FolderFinder;
+let cache: ExtensionCache;
 
 export function activate(context: vscode.ExtensionContext) {
-  initializeFileWatcher(context);
+  cache = new ExtensionCache();
+  folderFinder = new FolderFinder(cache);
+  folderFinder.initialize(context);
+
   const findFolderDisposable = vscode.commands.registerCommand(
     "vstofolder.FindFolder",
     async () => {
@@ -76,142 +53,15 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const gitExtension =
-        vscode.extensions.getExtension("vscode.git")?.exports;
-      let gitAPI: GitAPI | undefined;
-      if (gitExtension) {
-        gitAPI = gitExtension.getAPI(1);
-      }
+      const directories = await getDirectories();
 
-      let allDirectories: string[] = [];
-
-      const isIgnoredByGit = async (uri: vscode.Uri): Promise<boolean> => {
-        if (!gitAPI || gitAPI.repositories.length === 0) {
-          return false;
-        }
-
-        const repo = gitAPI.repositories.find((repo) => {
-          const repoPath = repo.rootUri.fsPath;
-          const filePath = uri.fsPath;
-          return filePath.startsWith(repoPath);
-        });
-
-        if (!repo) {
-          return true;
-        }
-
-        const ignoredPaths = await repo.checkIgnore([uri.fsPath]);
-        if (ignoredPaths.size > 0) {
-          return true;
-        }
-        return false;
-      };
-
-      const isExcludedBySettings = (relativePath: string): boolean => {
-        const config = vscode.workspace.getConfiguration();
-        const filesExclude = config.get<Record<string, boolean>>(
-          "files.exclude",
-          {},
-        );
-        const searchExclude = config.get<Record<string, boolean>>(
-          "search.exclude",
-          {},
-        );
-
-        const allExcludes = { ...filesExclude, ...searchExclude };
-
-        for (const pattern in allExcludes) {
-          if (allExcludes[pattern]) {
-            const globPattern = new RegExp(
-              pattern
-                .replace(/\*\*/g, ".*")
-                .replace(/\*/g, "[^/]*")
-                .replace(/\?/g, ".")
-                .replace(/\./g, "\\."),
-            );
-
-            if (
-              globPattern.test(relativePath) ||
-              globPattern.test(relativePath + "/")
-            ) {
-              return true;
-            }
-          }
-        }
-
-        return false;
-      };
-
-      const scanDirectory = async (
-        dirUri: vscode.Uri,
-        relativePath: string = "",
-        directories: string[] = [],
-      ) => {
-        try {
-          const items = await vscode.workspace.fs.readDirectory(dirUri);
-
-          for (const [name, type] of items) {
-            if (type === vscode.FileType.Directory && !name.startsWith(".")) {
-              const childUri = vscode.Uri.joinPath(dirUri, name);
-
-              const itemRelativePath = relativePath
-                ? path.join(relativePath, name)
-                : name;
-
-              const isIgnored = await isIgnoredByGit(childUri);
-              const isExcluded = isExcludedBySettings(itemRelativePath);
-
-              if (isIgnored || isExcluded) {
-                console.log(`Skipping ${itemRelativePath} due to exclusion`);
-                continue;
-              }
-
-              directories.push(itemRelativePath);
-              await scanDirectory(childUri, itemRelativePath, directories);
-            }
-          }
-        } catch (error) {
-          console.error(`Error scanning directory ${dirUri.fsPath}:`, error);
-        }
-      };
-
-      for (const folder of workspaceFolders) {
-        const cacheKey = folder.uri.toString();
-        const cached = directoryCache.get(cacheKey);
-        const now = Date.now();
-        const config = vscode.workspace.getConfiguration("vstofolder");
-        const cacheValidDurationMinutes = config.get<number>(
-          "cacheValidationDuration",
-          60,
-        );
-        const cacheValidDuration = cacheValidDurationMinutes * 60 * 1000;
-
-        if (
-          cached &&
-          cacheValidDurationMinutes > 0 &&
-          now - cached.timestamp < cacheValidDuration
-        ) {
-          allDirectories.push(...cached.directories);
-        } else {
-          const directories: string[] = [];
-          await scanDirectory(folder.uri, "", directories);
-
-          directoryCache.set(cacheKey, {
-            directories: directories,
-            timestamp: now,
-          });
-
-          allDirectories.push(...directories);
-        }
-      }
-
-      if (allDirectories.length === 0) {
+      if (directories.length === 0) {
         vscode.window.showInformationMessage("No directories found");
         return;
       }
 
       const selectedFolder = await vscode.window.showQuickPick(
-        allDirectories.sort(),
+        directories.sort(),
         {
           title: "Find Folder",
           placeHolder: "Select a folder to navigate to",
@@ -221,13 +71,7 @@ export function activate(context: vscode.ExtensionContext) {
       );
 
       if (selectedFolder) {
-        const workspaceFolder = workspaceFolders[0];
-        const folderUri = vscode.Uri.joinPath(
-          workspaceFolder.uri,
-          selectedFolder,
-        );
-        await vscode.commands.executeCommand("workbench.view.explorer");
-        await vscode.commands.executeCommand("revealInExplorer", folderUri);
+        await folderFinder.navigateToFolder(selectedFolder);
       }
     },
   );
@@ -236,8 +80,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   vscode.workspace.onDidChangeWorkspaceFolders(
     () => {
-      directoryCache.clear();
-      initializeFileWatcher(context);
+      cache.clear();
+      folderFinder.dispose();
+      folderFinder.initialize(context);
     },
     null,
     context.subscriptions,
@@ -246,17 +91,49 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.workspace.onDidChangeConfiguration(
     (event) => {
       if (event.affectsConfiguration("vstofolder.cacheValidationDuration")) {
-        directoryCache.clear();
+        cache.clear();
       }
     },
     null,
     context.subscriptions,
   );
+
+  async function getDirectories(): Promise<string[]> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+      return [];
+    }
+
+    let allDirectories: string[] = [];
+
+    for (const folder of workspaceFolders) {
+      const cacheKey = folder.uri.toString();
+      const cached = cache.get(cacheKey);
+
+      if (cached && cache.isCacheValid(cached)) {
+        allDirectories.push(...cached.directories);
+      } else {
+        const directories =
+          await folderFinder.getDirectoriesForWorkspace(folder);
+
+        cache.set(cacheKey, {
+          directories: directories,
+          timestamp: Date.now(),
+        });
+
+        allDirectories.push(...directories);
+      }
+    }
+
+    return allDirectories;
+  }
 }
 
 export function deactivate() {
-  if (fileWatcher) {
-    fileWatcher.dispose();
+  if (folderFinder) {
+    folderFinder.dispose();
   }
-  directoryCache.clear();
+  if (cache) {
+    cache.clear();
+  }
 }
