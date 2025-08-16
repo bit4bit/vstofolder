@@ -179,9 +179,18 @@ export function activate(context: vscode.ExtensionContext) {
         const cacheKey = folder.uri.toString();
         const cached = directoryCache.get(cacheKey);
         const now = Date.now();
-        const cacheValidDuration = 5 * 60 * 1000; // 5 minutes
+        const config = vscode.workspace.getConfiguration("vstofolder");
+        const cacheValidDurationMinutes = config.get<number>(
+          "cacheValidationDuration",
+          60,
+        );
+        const cacheValidDuration = cacheValidDurationMinutes * 60 * 1000;
 
-        if (cached && now - cached.timestamp < cacheValidDuration) {
+        if (
+          cached &&
+          cacheValidDurationMinutes > 0 &&
+          now - cached.timestamp < cacheValidDuration
+        ) {
           allDirectories.push(...cached.directories);
         } else {
           const directories: string[] = [];
@@ -205,6 +214,7 @@ export function activate(context: vscode.ExtensionContext) {
         allDirectories.sort(),
         {
           title: "Find Folder",
+          placeHolder: "Select a folder to navigate to",
           canPickMany: false,
         },
       );
@@ -227,6 +237,16 @@ export function activate(context: vscode.ExtensionContext) {
     () => {
       directoryCache.clear();
       initializeFileWatcher(context);
+    },
+    null,
+    context.subscriptions,
+  );
+
+  vscode.workspace.onDidChangeConfiguration(
+    (event) => {
+      if (event.affectsConfiguration("vstofolder.cacheValidationDuration")) {
+        directoryCache.clear();
+      }
     },
     null,
     context.subscriptions,

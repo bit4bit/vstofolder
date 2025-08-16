@@ -21,7 +21,19 @@
         "command": "vstofolder.FindFolder",
         "title": "Find Folder"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "VS To Folder",
+      "properties": {
+        "vstofolder.cacheValidationDuration": {
+          "type": "number",
+          "default": 60,
+          "minimum": 0,
+          "maximum": 60,
+          "description": "Cache validation duration in minutes. Set to 0 to disable caching."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
