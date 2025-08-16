@@ -1,6 +1,19 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
+interface GitExtension {
+  getAPI(version: number): GitAPI;
+}
+
+interface GitAPI {
+  repositories: Repository[];
+}
+
+interface Repository {
+  rootUri: vscode.Uri;
+  checkIgnore(paths: string[]): Promise<Set<string>>;
+}
+
 export function activate(context: vscode.ExtensionContext) {
   const findFolderDisposable = vscode.commands.registerCommand(
     "vstofolder.FindFolder",
@@ -11,7 +24,71 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
+      const gitExtension =
+        vscode.extensions.getExtension("vscode.git")?.exports;
+      let gitAPI: GitAPI | undefined;
+      if (gitExtension) {
+        gitAPI = gitExtension.getAPI(1);
+      }
+
       const directories: string[] = [];
+
+      const isIgnoredByGit = async (uri: vscode.Uri): Promise<boolean> => {
+        if (!gitAPI || gitAPI.repositories.length === 0) {
+          return false;
+        }
+
+        const repo = gitAPI.repositories.find((repo) => {
+          const repoPath = repo.rootUri.fsPath;
+          const filePath = uri.fsPath;
+          return filePath.startsWith(repoPath);
+        });
+
+        if (!repo) {
+          return true;
+        }
+
+        const ignoredPaths = await repo.checkIgnore([uri.fsPath]);
+        if (ignoredPaths.size > 0) {
+          return true;
+        }
+        return false;
+      };
+
+      const isExcludedBySettings = (relativePath: string): boolean => {
+        const config = vscode.workspace.getConfiguration();
+        const filesExclude = config.get<Record<string, boolean>>(
+          "files.exclude",
+          {},
+        );
+        const searchExclude = config.get<Record<string, boolean>>(
+          "search.exclude",
+          {},
+        );
+
+        const allExcludes = { ...filesExclude, ...searchExclude };
+
+        for (const pattern in allExcludes) {
+          if (allExcludes[pattern]) {
+            const globPattern = new RegExp(
+              pattern
+                .replace(/\*\*/g, ".*")
+                .replace(/\*/g, "[^/]*")
+                .replace(/\?/g, ".")
+                .replace(/\./g, "\\."),
+            );
+
+            if (
+              globPattern.test(relativePath) ||
+              globPattern.test(relativePath + "/")
+            ) {
+              return true;
+            }
+          }
+        }
+
+        return false;
+      };
 
       const scanDirectory = async (
         dirUri: vscode.Uri,
@@ -22,13 +99,21 @@ export function activate(context: vscode.ExtensionContext) {
 
           for (const [name, type] of items) {
             if (type === vscode.FileType.Directory && !name.startsWith(".")) {
+              const childUri = vscode.Uri.joinPath(dirUri, name);
+
               const itemRelativePath = relativePath
                 ? path.join(relativePath, name)
                 : name;
 
-              directories.push(itemRelativePath);
+              const isIgnored = await isIgnoredByGit(childUri);
+              const isExcluded = isExcludedBySettings(itemRelativePath);
 
-              const childUri = vscode.Uri.joinPath(dirUri, name);
+              if (isIgnored || isExcluded) {
+                console.log(`Skipping ${itemRelativePath} due to exclusion`);
+                continue;
+              }
+
+              directories.push(itemRelativePath);
               await scanDirectory(childUri, itemRelativePath);
             }
           }
