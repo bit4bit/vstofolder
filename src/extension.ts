@@ -72,23 +72,27 @@ function getGitAPI(): GitAPI | undefined {
 }
 
 async function isIgnoredByGit(uri: vscode.Uri): Promise<boolean> {
-  const gitAPI = getGitAPI();
-  if (!gitAPI || gitAPI.repositories.length === 0) {
+  try {
+    const gitAPI = getGitAPI();
+    if (!gitAPI || gitAPI.repositories.length === 0) {
+      return false;
+    }
+
+    const repo = gitAPI.repositories.find((repo) => {
+      const repoPath = repo.rootUri.fsPath;
+      const filePath = uri.fsPath;
+      return filePath.startsWith(repoPath);
+    });
+
+    if (!repo) {
+      return false;
+    }
+
+    const ignoredPaths = await repo.checkIgnore([uri.fsPath]);
+    return ignoredPaths.size > 0;
+  } catch (error) {
     return false;
   }
-
-  const repo = gitAPI.repositories.find((repo) => {
-    const repoPath = repo.rootUri.fsPath;
-    const filePath = uri.fsPath;
-    return filePath.startsWith(repoPath);
-  });
-
-  if (!repo) {
-    return true;
-  }
-
-  const ignoredPaths = await repo.checkIgnore([uri.fsPath]);
-  return ignoredPaths.size > 0;
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -178,11 +182,12 @@ export function activate(context: vscode.ExtensionContext) {
       const cached = cache.get(cacheKey);
       const workspaceName = folder.name;
 
+      allDirectories.push(`${workspaceName}/`);
+
       if (cached && cache.isCacheValid(cached)) {
-        const prefixedDirectories =
-          workspaceFolders.length > 1
-            ? cached.directories.map((dir) => `${workspaceName}/${dir}`)
-            : cached.directories;
+        const prefixedDirectories = cached.directories.map(
+          (dir) => `${workspaceName}/${dir}`,
+        );
         allDirectories.push(...prefixedDirectories);
       } else {
         const directories =
@@ -193,10 +198,9 @@ export function activate(context: vscode.ExtensionContext) {
           timestamp: Date.now(),
         });
 
-        const prefixedDirectories =
-          workspaceFolders.length > 1
-            ? directories.map((dir) => `${workspaceName}/${dir}`)
-            : directories;
+        const prefixedDirectories = directories.map(
+          (dir) => `${workspaceName}/${dir}`,
+        );
         allDirectories.push(...prefixedDirectories);
       }
     }

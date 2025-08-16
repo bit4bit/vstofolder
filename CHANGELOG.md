@@ -4,6 +4,11 @@ All notable changes to the "vstofolder" extension will be documented in this fil
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.2.2] - 2025-08-16
+
+### Changed
+- **Workspace Root Display**: Workspace folders now appear in the directory list with trailing slash (e.g., `my-workspace/`) to clearly distinguish workspace roots from subdirectories
+
 ## [1.2.1] - 2025-08-16
 
 ### Improved

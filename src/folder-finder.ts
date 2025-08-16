@@ -152,20 +152,33 @@ export class FolderFinder {
     let targetWorkspace = workspaceFolders[0];
     let folderPath = selectedFolder;
 
-    if (workspaceFolders.length > 1) {
-      const pathParts = selectedFolder.split("/");
-      const workspaceName = pathParts[0];
-      folderPath = pathParts.slice(1).join("/");
-
+    if (selectedFolder.endsWith("/")) {
+      const workspaceName = selectedFolder.slice(0, -1);
       const foundWorkspace = workspaceFolders.find(
         (ws) => ws.name === workspaceName,
       );
       if (foundWorkspace) {
         targetWorkspace = foundWorkspace;
+        folderPath = "";
+      }
+    } else {
+      const pathParts = selectedFolder.split("/");
+      if (pathParts.length > 1) {
+        const workspaceName = pathParts[0];
+        folderPath = pathParts.slice(1).join("/");
+
+        const foundWorkspace = workspaceFolders.find(
+          (ws) => ws.name === workspaceName,
+        );
+        if (foundWorkspace) {
+          targetWorkspace = foundWorkspace;
+        }
       }
     }
 
-    const folderUri = vscode.Uri.joinPath(targetWorkspace.uri, folderPath);
+    const folderUri = folderPath
+      ? vscode.Uri.joinPath(targetWorkspace.uri, folderPath)
+      : targetWorkspace.uri;
     await vscode.commands.executeCommand("workbench.view.explorer");
     await vscode.commands.executeCommand("revealInExplorer", folderUri);
   }
