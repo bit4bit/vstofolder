@@ -1,6 +1,6 @@
 # VS To Folder
 
-A VS Code and Windsurf extension that provides quick navigation to any folder in your workspace through a searchable quick pick interface.
+A VS Codium extension that provides quick navigation to any folder in your workspace.
 
 ## Features
 
