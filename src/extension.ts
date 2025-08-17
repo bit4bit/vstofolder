@@ -120,15 +120,12 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const selectedFolder = await vscode.window.showQuickPick(
-        directories.sort(),
-        {
-          title: "Find Folder",
-          placeHolder: "Select a folder to navigate to",
-          canPickMany: false,
-          matchOnDescription: true,
-        },
-      );
+      const selectedFolder = await vscode.window.showQuickPick(directories, {
+        title: "Find Folder",
+        placeHolder: "Select a folder to navigate to",
+        canPickMany: false,
+        matchOnDescription: true,
+      });
 
       if (selectedFolder) {
         await folderFinder.navigateToFolder(selectedFolder);
