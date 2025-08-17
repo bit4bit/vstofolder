@@ -4,6 +4,16 @@ All notable changes to the "vstofolder" extension will be documented in this fil
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.2.3] - 2025-01-28
+
+### Changed
+- **Cache Duration**: Default cache duration increased from 1 hour to 1 week for better performance
+- **Directory Sorting**: Removed alphabetical sorting from folder list to preserve natural discovery order
+
+### Added
+- **Progress Indication**: Shows "Finding folders..." progress notification only during initial cache warming
+- **Cache Optimization**: Added `needsWarming()` method to cache class for better separation of concerns
+
 ## [1.2.2] - 2025-08-16
 
 ### Changed

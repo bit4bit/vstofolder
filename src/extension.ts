@@ -49,7 +49,7 @@ class ExtensionCache implements DirectoryCache {
     const config = vscode.workspace.getConfiguration("vstofolder");
     const cacheValidDurationMinutes = config.get<number>(
       "cacheValidationDuration",
-      60,
+      10080,
     );
     const cacheValidDuration = cacheValidDurationMinutes * 60 * 1000;
 
@@ -57,6 +57,14 @@ class ExtensionCache implements DirectoryCache {
       cacheValidDurationMinutes > 0 &&
       now - entry.timestamp < cacheValidDuration
     );
+  }
+
+  needsWarming(workspaceFolders: readonly vscode.WorkspaceFolder[]): boolean {
+    return workspaceFolders.some((folder) => {
+      const cacheKey = folder.uri.toString();
+      const cached = this.get(cacheKey);
+      return !cached || !this.isCacheValid(cached);
+    });
   }
 }
 
@@ -112,7 +120,18 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const directories = await getDirectories(workspaceFolders);
+      const directories = cache.needsWarming(workspaceFolders)
+        ? await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: "Finding folders...",
+              cancellable: false,
+            },
+            async (progress) => {
+              return await getDirectories(workspaceFolders, progress);
+            },
+          )
+        : await getDirectories(workspaceFolders);
 
       if (directories.length === 0) {
         cache.clear();
@@ -168,8 +187,11 @@ export function activate(context: vscode.ExtensionContext) {
 
   async function getDirectories(
     workspaceFolders: readonly vscode.WorkspaceFolder[],
+    progress?: vscode.Progress<{ message?: string; increment?: number }>,
   ): Promise<string[]> {
     let allDirectories: string[] = [];
+    const totalWorkspaces = workspaceFolders.length;
+    let processedWorkspaces = 0;
 
     for (const folder of workspaceFolders) {
       const cacheKey = folder.uri.toString();
@@ -184,6 +206,11 @@ export function activate(context: vscode.ExtensionContext) {
         );
         allDirectories.push(...prefixedDirectories);
       } else {
+        progress?.report({
+          message: `Scanning ${workspaceName}...`,
+          increment: 0,
+        });
+
         const directories =
           await folderFinder.getDirectoriesForWorkspace(folder);
 
@@ -197,6 +224,11 @@ export function activate(context: vscode.ExtensionContext) {
         );
         allDirectories.push(...prefixedDirectories);
       }
+
+      processedWorkspaces++;
+      progress?.report({
+        increment: 100 / totalWorkspaces,
+      });
     }
 
     return allDirectories;

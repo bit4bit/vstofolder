@@ -3,7 +3,7 @@
   "publisher": "bit4bit",
   "displayName": "Find Folder",
   "description": "Instantly find and navigate to any folder in your workspace.",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "license": "MIT",
   "engines": {
     "vscode": "^1.99.0",
@@ -39,9 +39,9 @@
       "properties": {
         "vstofolder.cacheValidationDuration": {
           "type": "number",
-          "default": 60,
+          "default": 10080,
           "minimum": 0,
-          "maximum": 60,
+          "maximum": 40320,
           "description": "Cache validation duration in minutes. Set to 0 to disable caching."
         },
         "vstofolder.enableDetailedLogging": {

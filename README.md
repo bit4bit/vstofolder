@@ -47,7 +47,7 @@ npm run compile
 
 ## Requirements
 
-- VS Code 1.103.0 or higher
+- VS Code 1.99.0 or higher
 - Windsurf 1.0.0 or higher (compatible)
 - Git extension (optional, for git-ignore functionality)
 
@@ -55,33 +55,6 @@ npm run compile
 
 - Large workspaces may experience initial scanning delays
 - Cache invalidation occurs on any file system change, which may impact performance in very active projects
-
-## Release Notes
-
-### 0.0.1
-
-Initial release with core folder finding functionality.
-
-## Deployment and Testing
-
-### For Users
-
-#### VS Code
-Install directly from the VS Code Marketplace (when published) or use the VSIX file:
-1. Download `vstofolder-1.1.0.vsix`
-2. In VS Code: `Extensions: Install from VSIX...`
-3. Select the downloaded file
-
-#### Windsurf IDE
-1. Configure marketplace (one-time setup):
-   ```json
-   {
-     "windsurf.marketplaceExtensionGalleryServiceURL": "https://marketplace.visualstudio.com/_apis/public/gallery",
-     "windsurf.marketplaceGalleryItemURL": "https://marketplace.visualstudio.com/items"
-   }
-   ```
-2. Restart Windsurf
-3. Install from Extensions panel or use VSIX file
 
 ### For Developers
 
@@ -109,12 +82,6 @@ npm run package  # Creates vstofolder-1.1.0.vsix
 ## Contributing
 
 This extension is built with TypeScript and follows VS Code extension development patterns. Contributions are welcome!
-
-### Development Guidelines
-- Test changes in both VS Code and Windsurf
-- Ensure environment detection works correctly
-- Maintain performance parity between environments
-- Add tests for new functionality
 
 ## License
 
