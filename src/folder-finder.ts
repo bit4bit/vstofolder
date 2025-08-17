@@ -82,17 +82,6 @@ export class FolderFinder {
           const isExcluded = this.isExcludedBySettings(itemRelativePath);
 
           if (isIgnored || isExcluded) {
-            const config = vscode.workspace.getConfiguration("vstofolder");
-            const enableDetailedLogging = config.get<boolean>(
-              "enableDetailedLogging",
-              false,
-            );
-
-            if (enableDetailedLogging) {
-              console.log(
-                `[${this.environment}] Skipping ${itemRelativePath} due to exclusion`,
-              );
-            }
             continue;
           }
 

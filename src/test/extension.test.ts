@@ -57,12 +57,5 @@ suite("Extension Test Suite", () => {
       "number",
       "Cache validation should be a number",
     );
-
-    const detailedLogging = config.get("enableDetailedLogging");
-    assert.strictEqual(
-      typeof detailedLogging,
-      "boolean",
-      "Detailed logging should be a boolean",
-    );
   });
 });

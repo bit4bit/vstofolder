@@ -43,11 +43,6 @@
           "minimum": 0,
           "maximum": 40320,
           "description": "Cache validation duration in minutes. Set to 0 to disable caching."
-        },
-        "vstofolder.enableDetailedLogging": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable detailed logging for debugging purposes (affects performance)."
         }
       }
     }

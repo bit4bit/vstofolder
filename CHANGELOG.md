@@ -14,6 +14,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - **Progress Indication**: Shows "Finding folders..." progress notification only during initial cache warming
 - **Cache Optimization**: Added `needsWarming()` method to cache class for better separation of concerns
 
+### Removed
+- **Detailed Logging**: Removed `vstofolder.enableDetailedLogging` configuration option and related logging code
+
 ## [1.2.2] - 2025-08-16
 
 ### Changed
